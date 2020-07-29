@@ -6,18 +6,27 @@ from torch.nn.utils.rnn import pad_sequence
 import nlp
 from fastai2.text.all import *
 
+
+
 @delegates()
 class MySortedDL(TfmdDL):
-    "A `DataLoader` that goes throught the item in the order given by `sort_key`"
+    "A :class:`DataLoader` that do smart batching and dynamic padding. Different from :class:`SortedDL`, it automatically pad every attribute of samples, is able to filter samples, and can be cached to sort/filter only at first time."
 
     def __init__(self, dataset, srtkey_fc=None, filter_fc=False, pad_idx=None, cache_file=None, **kwargs):
         """
         Args:
-            `dataset`:
-            `srtkey_fc` (`Callable[*args]->int`): Get elements of a sample and return a sorting key. `None` for getting the length of first element, `False` to not sort 
-            `filter_fc` (`Callable[*args]->bool`): Get elements of a sample and return `False` to filter out the sample
-            `pad_idx` (`int`, default: `None`): pad each attribute of samples to the max length of its max length within the batch. If `False`, do no padding. If `None`, use `dataset`'s `pad_idx` if it has, otherwise do no padding.
-            `cache_file` (`Optional[str]`, default: `None`): Path of a json file to store the computed record of results of sort or filterout.
+            dataset (HF_Dataset): Actually any object implements ``__len__`` and ``__getitem__`` that return a tuple as a sample.
+            srtkey_fc (``*args->int``, optional): Get elements of a sample and return a sorting key. 
+              If ``None``, sort by length of first element of a sample.
+              If ``False``, not sort. 
+            filter_fc (``*args->bool``, optional): Get elements of a sample and return ``True`` to keep the sample.
+            pad_idx (``int``, optional): pad each attribute of samples to the max length of its max length within the batch. 
+              If ``False``, do no padding. 
+              If ``None``, try ``dataset.pad_idx``, do no padding if no such attribute.
+            cache_file (``str``, optional): Path of a json file to cache info for sorting and filtering.
+
+        Examples::
+            class Fake_HF_Dataset()
         """
         # Defaults
         if srtkey_fc is not False: srtkey_fc = lambda *x: len(x[0])
@@ -284,9 +293,9 @@ class HF_Datasets(FilteredBase):
   def dataloaders(self, device='cpu', cache_dir=None, cache_name=None, **kwargs):
     """
     Args:
-      `device` (`Optional[str]`, default:`'cpu'`)
-      `cache_dir` (`Optional[str]`, default: `None`): directory to store dataloader caches. if `None`, use cache directory of first `nlp.Dataset` stored.
-      `cache_name` (`Optional[str]`, default: `None`): format string with only one param `{split}` as cache file name under `cache_dir` for each split. If `None`, use autmatical cache path by hf/nlp.      
+      device (str, default:`'cpu'`)
+      cache_dir (`Optional[str]`, default: `None`): directory to store dataloader caches. if `None`, use cache directory of first `nlp.Dataset` stored.
+      cache_name (`Optional[str]`, default: `None`): format string with only one param `{split}` as cache file name under `cache_dir` for each split. If `None`, use autmatical cache path by hf/nlp.      
     """
     dl_kwargs = kwargs.pop('dl_kwargs', [{} for _ in range(len(self.hf_dsets))])
     # infer cache file names for each dataloader if needed
