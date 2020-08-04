@@ -4,14 +4,14 @@ import nlp
 from fastai2.text.all import *
 
 class HF_BaseTransform():
-  "The base of HuggingFace/nlp transform"
+  "The base class of HuggingFace/nlp transform. Inherit it to get the ability to do :func:`map` on not only a :class:`nlp.Dataset` but also  :class:`nlp.Dataset` s at once."
 
   def __init__(self, hf_dsets, remove_original=False, out_cols=None):
     """
     Args:
-      `hf_dsets` (`Dict[nlp.Dataset]` or `nlp.Dataset`): the dataset(s) to `map`
-      `remove_original` (`bool`, default=`False`): whther to remove all original columns after `map`
-      `out_cols` (`List[str]`, default=`None`): output column names. If specified, check they're not in the list of columns to remove when `remove_columns` is specified in `map` or `remove_original` is True
+      hf_dsets (Dict[ :class:`nlp.Dataset` ] or :class:`nlp.Dataset` ): The Hugging Face dataset(s) to do `map`
+      remove_original (bool): whther to remove all original columns after `map`
+      out_cols (List[str]): output column names. If specified, it will assure they are not in the columns to be removed.
     """
     # check arguments
     if isinstance(hf_dsets, nlp.Dataset): hf_dsets = {'Single': hf_dsets}
@@ -27,9 +27,10 @@ class HF_BaseTransform():
   def map(self, split_kwargs=None, cache_dir=None, cache_name=None, **kwargs):
     """
     Args:
-      `split_kwargs` (`Dict[dict]` or `List[dict]`, default=`None`): arguments of `_map` and `nlp.Dataset.map` for specific splits. If specified in `dict`, you can specify only kwargs for some of all splits. 
-      `cache_dir` (`Optional[str]`, default=`None`): if `None`, it is the cache dir of the (first) dataset. 
-      `cache_name` (`Optional[str]`, default=`None`): format string with `{split}` converted to split name, as cache file name under `cache_dir` for each split. If `None`, use autmatical cache path by hf/nlp.  
+      split_kwargs (Dict[dict] or List[dict]): arguments of :func:`_map` and :func:`nlp.Dataset.map` for specific splits.
+      cache_dir (str, default=`None`): if ``None``, it is the cache dir of the (first) dataset. 
+      cache_name (str, default=`None`): format string includes one param "{split}" that will be converted to split name, as cache file name under `cache_dir` for each split. If ``None``, use automatically generated hashed name by hf/nlp.  
+      kwargs: passed to :func:`_map` and :func:`nlp.Dataset.map`   
     """
     # check/process arguments
     if self.remove_original: 
@@ -60,21 +61,37 @@ class HF_BaseTransform():
     if not self.out_cols: return
     for col in self.out_cols: assert col not in rm_cols, f"Output column name {col} is in the list of columns {rm_cols} will be removed after `map`." + f"The split is {split}" if split != 'Single' else ''
 
-  # The default method you can override
   @delegates(nlp.Dataset.map)
   def _map(self, dset, split, **kwargs):
+    """ Child class can override this method to implement. """
     return dset.map(self, **kwargs)
   
   # The method you need to implement
-  def __call__(self, example): raise NotImplementedError
+  def __call__(self, example): 
+    """ Child class should implement this method, which takes an example (dict) and return an example (dict), just like ``function`` in :func:`nlp.Dataset.map`"""
+    raise NotImplementedError
 
 @delegates()
 class HF_Transform(HF_BaseTransform):
+  """ Like normal :func:`nlp.Dataset.map`, but is able to process multiple :class:`nlp.Dataset` """
   def __init__(self, hf_dset, func, **kwargs):
     """
     Args:
-      `hf_dset` (`nlp.Dataset`),
-      `func` (`Callable[dict]->dict`): sampel as `func` in `nlp.Dataset.map`
+      hf_dset (:class:`nlp.Dataset` or Dict[ :class:`nlp.Dataset` ]): The Hugging Face dataset(s) to map
+      func (`Callable[dict]->dict`): like `func` in `nlp.Dataset.map`
+    
+    Example:
+      >>> rte = nlp.load_dataset('glue', 'rte')
+      >>> def custom_tokenize(example):
+      ...   example['tok_ids'] = hf_tokenizer.encode(example['sentence1'], example['sentence2'])
+      ...   return example
+      >>> tokenized_rte = HF_Transform(rte, custom_tokenize).map()
+      >>> tokenized_rte['validation'][0]
+      {'sentence1': 'Dana Reeve, the widow of the actor Christopher Reeve, has died of lung cancer at age 44, according to the Christopher Reeve Foundation.',
+       'sentence2': 'Christopher Reeve had an accident.',
+       'label': 1,
+       'idx': 0,
+       'tok_ids': [101, 11271, 20726, 1010, 1996, 7794, 1997, 1996, 3364, 5696, 20726, 1010, 2038, 2351, 1997, 11192, 4456, 2012, 2287, 4008, 1010, 2429, 2000, 1996, 5696, 20726, 3192, 1012, 102, 5696, 20726, 2018, 2019, 4926, 1012, 102]}
     """
     super().__init__(hf_dset, **kwargs)
     self.func = func
@@ -86,11 +103,23 @@ class HF_TokenizeTfm(HF_BaseTransform):
   def __init__(self, hf_dset, cols, hf_toker, **kwargs):
     """
     Args:
-      `hf_dset` (`nlp.Dataset`)
-      `cols`: with one of the following signature:
-        - `cols`(`Dict[str]`): tokenize the every column named key into column named its value
+      hf_dset (:class:`nlp.Dataset` or Dict[ :class:`nlp.Dataset` ]): The Hugging Face dataset(s) to do tokenization
+      cols: with one of the following signature:\n
+        - `cols`(`Dict[str]`): tokenize the every column named [key] into a column named [value]
         - `cols`(`List[str]`): specify the name of columns to be tokenized, replace the original columns' data with tokenized one
-      `hf_toker`: tokenizer of HuggingFace/Transformers.
+      hf_toker (:class:`transformers.PreTrainedTokenizer`, optional): Hugging Face tokenizer
+
+    Example:
+      >>> cola = nlp.load_dataset('glue', 'cola') 
+      {'train':nlp.Dataset, 'validation':nlp.Dataset, 'test':nlp.Dataset}
+      >>> cola['train][0]
+      {'sentence': "Our friends won't buy this analysis, let alone the next one we propose.",
+        'label': 1, 'idx': 0,}
+      >>> tokenized_cola = HF_TokenizeTfm(cola, {'sentence':'text_idxs'}, hf_tokenizer).map()
+      >>> tokenized_cola['train'][0]
+      {'sentence': "Our friends won't buy this analysis, let alone the next one we propose.",
+        'label': 1, 'idx': 0,
+        'text_idxs': [2256, 2814, 2180, 1005, 1056, 4965, 2023, 4106, 1010, 2292, 2894, 1996, 2279, 2028, 2057, 16599, 1012]}
     """
     if isinstance(cols, list): cols = {c:c for c in cols}
     assert isinstance(cols, dict)
@@ -117,17 +146,16 @@ class HF_TokenizeTfm(HF_BaseTransform):
 
 class CombineTransform(HF_BaseTransform):
   """
-  Inherit this class and implement `accumulate` and `create_example`
+  Base Class for Transform that combine multiple original samples into a new sample. 
   """
   def __init__(self, hf_dset, inp_cols, out_cols, init_attrs, drop_last=False):
     """
     Args:
-      `hf_dset` (`nlp.Dataset` or `Dict[nlp.Dataset]`)
-      `inp_cols` (`List[str]`)
-      `out_cols` (`List[str]`)
-      `init_attrs` (`List[str]`): name of attributes of children class that need to be their initial status when starts to aggregate dataset. i.e. Those defined in `__init__` and the value will changed during `accumulate`
-      `drop_last` (`Optional[bool]`, default: `False`): whether to drop the last accumulated sample.
-      `cache_dir` (`str`, default=`None`): if `None`, it is the cache dir of the (first) dataset.
+      hf_dset (:class:`nlp.Dataset` or Dict[ :class:`nlp.Dataset` ]): The Hugging Face dataset(s) to do the transformation
+      inp_cols (`List[str]`): names of input columns that used to produce samples
+      out_cols (`List[str]`): names of output columns to put combined samples.
+      init_attrs` (`List[str]`): name of attributes of children class that need to be their initial status when starts to aggregate dataset. i.e. Those defined in `__init__` and the value will changed during `accumulate`
+      drop_last` (`Optional[bool]`, default: `False`): whether to drop the last accumulated sample.
     """
     super().__init__(hf_dset)
     self.inp_cols, self.out_cols =  inp_cols, out_cols
@@ -165,34 +193,29 @@ class CombineTransform(HF_BaseTransform):
 
   def accumulate(self, *args):
     """
-    Given a example, do `self.commit_example(self.create_example()) when a new aggregated sample is ready.`
+    Child Class should implement this method.
+    Given a example, do `self.commit_example(self.create_example()) when a new combined sample is ready.`
     Args:
-      `args`: nlp.Dataset[i][inp_col] for inp_col in self.inp_cols
-    """ 
+      args : values of :data:`inp_cols` ( passed to :func:`__init__` ) of an example
+    """
     raise NotImplementedError
   
   def create_example(self): 
     """
-    When it is ready, create a sample (Dict[Any])
+    Child Class should implement this method.
+    Use attributes stored in the child class instance to create a combined sample (dict) when it is ready
     """
     raise NotImplementedError
 
   def _map(self, hf_dset, split, batch_size=1000, **kwargs):
-    """
-    Args:
-      `batch_size`: see `nlp.Dataset.map`
-    """
     assert 'remove_columns' not in kwargs, "Aggregation type transform will only leave output columns for output dataset."
     output_schema = self.get_output_schema(hf_dset, kwargs.pop('test_batch_size', 20))
     return hf_dset.map(function=self, batched=True, batch_size=batch_size, with_indices=True,
                             arrow_schema=output_schema, **kwargs)
 
   def get_output_schema(self, hf_dset, test_batch_size=20):
-    "Do test run by ourself to get output schema, becuase default test run use batch_size=2, which might be too small to aggregate a sample out."
-    """
-    Args:
-      `test_batch_size` (`int`, default=`20`): we infer the new schema of the aggregated dataset by the outputs of testing that passed first `test_batch_size` samples to aggregate. Depending how many sample aggreagted can you have a sample, this number might need to be higher.
-    """
+    # Do test run by ourself to get output schema, becuase default test run use batch_size=2, which might be too small to aggregate a sample out.
+    # test_batch_size` (`int`, default=`20`): we infer the new schema of the aggregated dataset by the outputs of testing that passed first `test_batch_size` samples to aggregate. Depending how many sample aggreagted can you have a sample, this number might need to be higher.
     test_inputs, test_indices = hf_dset[:test_batch_size], list(range(test_batch_size))
     test_output = self(test_inputs,test_indices)
     for col,val in test_output.items(): assert val, f"Didn't get any example in test, you might want to try larger `test_batch_size` than {test_batch_size}"
@@ -202,7 +225,25 @@ class CombineTransform(HF_BaseTransform):
 
 @delegates(CombineTransform, but=["inp_cols", "out_cols", "init_attrs"])
 class LMTransform(CombineTransform):
+  """ Transform any dataset has tokenized text into dataset (autotgressive) language model. """
   def __init__(self, tokenized_hf_dset, max_len, text_col, x_text_col='x_text', y_text_col='y_text', **kwargs):
+    """
+    Args:
+      tokenized_hf_dset (:class:`nlp.Dataset` or Dict[ :class:`nlp.Dataset` ]): tokenized Hugging Face dataset(s) to do LM transform 
+      max_len (int): the length of a sentence
+      text_col (str): the name of column that contains tokenized text (ids) of tokenized_hf_dset
+      x_text_col (str): the name of the output column
+      y_text_col (str): the name fo the output column
+      kwargs: passed to :class:CombineTransform
+
+    Example:
+      >>> lm_dataset = LMTransform(tokenized_cola['validation'], max_len=20, text_col='text_idxs').map()
+      >>> lm_dataset[0]
+      {'x_text': [ 1996, 11279,  8469,  1996,  9478,  3154,  1997,  1996,  5749,  1012,
+          1996, 15871,  2081,  1996,  8164,  7683,  2058,  1996,  4139,  3240],
+       'y_text': [11279,  8469,  1996,  9478,  3154,  1997,  1996,  5749,  1012,  1996,
+         15871,  2081,  1996,  8164,  7683,  2058,  1996,  4139,  3240,  1012]}
+    """
     if isinstance(text_col, str): text_col = {text_col:['x_text','y_text']}
     assert isinstance(text_col, dict)
     self.text_col, (self.x_text_col, self.y_text_col) = next(iter(text_col.items()))
@@ -212,7 +253,7 @@ class LMTransform(CombineTransform):
     
 
   def accumulate(self, text): # *inp_cols
-    "text: a list of indices"
+    """ Implement the abstract method"""
     usable_len = len(text)
     cursor = 0
     while usable_len != 0:
@@ -225,6 +266,7 @@ class LMTransform(CombineTransform):
         self.commit_example(self.create_example())   
 
   def create_example(self):
+    """ Implement the abstract method"""
     # when read all data, the accumulated new_text might be less than two characters.
     if len(self.new_text) >= 2: 
       example = {self.x_text_col:self.new_text[:-1], self.y_text_col:self.new_text[1:]}
@@ -238,8 +280,18 @@ class LMTransform(CombineTransform):
 
 @delegates(CombineTransform, but=["inp_cols", "out_cols", "init_attrs"])
 class ELECTRADataTransform(CombineTransform):
-  
+  "Process any text corpus for ELECTRA's use"
   def __init__(self, hf_dset, is_docs, text_col, max_length, hf_toker, delimiter='\n', **kwargs):
+    """
+    Args:
+      hf_dset (:class:`nlp.Dataset` or Dict[:class:`nlp.Dataset`]): **untokenized** Hugging Face dataset(s) to do the transform
+      is_docs (bool): Whether each sample of this dataset is a doc
+      text_col (str): the name of column of the dataset contains text 
+      max_length (str): max length of each sentence
+      hf_toker (:class:`transformers.PreTrainedTokenizer`): Hugging Face tokenizer
+      delimiter (str): what is the delimiter to segment sentences in the input text
+      kwargs: passed to :class:`CombineTransform`
+    """
     if isinstance(text_col, str): text_col={text_col:text_col}
     assert isinstance(text_col, dict)
     self.is_docs = is_docs
@@ -254,10 +306,8 @@ class ELECTRADataTransform(CombineTransform):
     super().__init__(hf_dset, inp_cols=[self.in_col], out_cols=[self.out_col], 
                     init_attrs=['_current_sentences', '_current_length', '_target_length'], **kwargs)
 
-  """
-  This two main functions adapts official source code creates pretraining dataset, to CombineTransform
-  """
   def accumulate(self, text):
+    """ Implement the abstract method"""
     sentences = text.split(self.delimiter)
     for sentence in sentences:
       if not sentence: continue # skip empty
@@ -268,12 +318,13 @@ class ELECTRADataTransform(CombineTransform):
       self.commit_example(self.create_example())
   
   def create_example(self):
+    """ Implement the abstract method"""
     input_ids = self._create_example() # this line reset _current_sentences and _current_length in the end
     return {self.out_col: input_ids}
   # ...................................................
 
   def add_line(self, tokids):
-    """Adds a line of text to the current example being built."""
+    # Adds a line of text to the current example being built.
     self._current_sentences.append(tokids)
     self._current_length += len(tokids)
     if self._current_length >= self._target_length:

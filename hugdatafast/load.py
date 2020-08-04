@@ -16,17 +16,32 @@ class MySortedDL(TfmdDL):
         """
         Args:
             dataset (HF_Dataset): Actually any object implements ``__len__`` and ``__getitem__`` that return a tuple as a sample.
-            srtkey_fc (``*args->int``, optional): Get elements of a sample and return a sorting key. 
-              If ``None``, sort by length of first element of a sample.
-              If ``False``, not sort. 
-            filter_fc (``*args->bool``, optional): Get elements of a sample and return ``True`` to keep the sample.
-            pad_idx (``int``, optional): pad each attribute of samples to the max length of its max length within the batch. 
-              If ``False``, do no padding. 
-              If ``None``, try ``dataset.pad_idx``, do no padding if no such attribute.
+            srtkey_fc (``*args->int``, optional): Get key for decending sorting from a sample .\n
+              - If ``None``, sort by length of first element of a sample.
+              - If ``False``, not sort. 
+            filter_fc (``*args->bool``, optional): Return ``True`` to keep the sample.
+            pad_idx (``int``, optional): pad each attribute of samples to the max length of its max length within the batch.\n 
+              - If ``False``, do no padding. 
+              - If ``None``, try ``dataset.pad_idx``, do no padding if no such attribute.
             cache_file (``str``, optional): Path of a json file to cache info for sorting and filtering.
 
-        Examples::
-            class Fake_HF_Dataset()
+        Example:
+            >>> samples = [ (torch.tensor([1]), torch.tensor([7,8]), torch.tensor(1)),,
+            ...             (torch.tensor([2,3]), torch.tensor([9,10,11]), torch.tensor(2)),
+            ...             (torch.tensor([4,5,6]), torch.tensor([11,12,13,14]), torch.tensor(3)), ]
+            ... dl = MySortedDL(samples,
+            ...                 srtkey_fc=lambda *args: len(args[0]),
+            ...                 filter_fc=lambda x1,y1: y1<3,
+            ...                 pad_idx=-1,
+            ...                 cache_file='/tmp/cache.json', # calls after this will load cache
+            ...                 bs=999, # other parameters go to `TfmDL` and `DataLoader`
+            ...                 )
+            ... dl.one_batch()
+            (tensor([[ 2,  3],
+                     [ 1, -1]]),
+             tensor([[ 9, 10, 11],
+                    [ 7,  8, -1]]),
+             tensor([2, 1]))
         """
         # Defaults
         if srtkey_fc is not False: srtkey_fc = lambda *x: len(x[0])
@@ -179,22 +194,46 @@ def show_results(x: tuple, y, samples, outs, ctxs=None, max_n=10, trunc_at=150, 
   return ctxs
 
 class HF_Dataset():
-  "A wrapper for `nlp.Dataset` to make it fulfill behaviors of `fastai2.Datasets` we need. Unless overidded, it behaves like original `nlp.Dataset`"
+  """A wrapper for :class:`nlp.Dataset`.  It will behavior like original :class:`nlp.Dataset`, 
+  but also function as a :class:`fastai2.data.core.datasets` that provides samples and decodes."""
   
   def __init__(self, hf_dset, cols=None, hf_toker=None, neat_show=False, n_inp=1):
     """
     Args:
-      `hf_dset` (`nlp.Dataset`)
-      `cols` (`Optional`, default: `None`): **specify columns whose values form a output sample in order**, and the semantic type of each column to encode/decode, with one of the following signature.
-      - `cols`(`Dict[Fastai Semantic Tensor]`): encode/decode {key} columns with {value} semantic tensor type. If {value} is `noop`, regard it as `TensorTuple` by default.
-      - `cols`(`List[str]`): 
-        - if of length 1, regard the 1st element as `TensorText`
-        - if of length 2, regard the 1st element as `TensorText`, 2nd element as `TensorCategory`
-        - Otherwise, regard all elements as `TensorTuple`
-      - `None`: use `hf_dset.column_names` and deal with it like `List[str]` above.
-      `hf_toker`: tokenizer of HuggingFace/Transformers
-      `neat_show` (`Optional[bool]`, default:`False`): Show the original sentence instead of tokens joined.
-      `n_inp (`int`, default:1) the first `n_inp` columns of `cols` is x, and the rest is y .
+      hf_dset (:class:`nlp.Dataset`): Prerocessed Hugging Face dataset to be wrapped.
+      cols (dict, optional): columns of :class:`nlp.Dataset` to be used to construct samples, and (optionally) semantic tensor type for each of those columns to decode.\n
+        - cols(``Dict[Fastai Semantic Tensor]``): encode/decode column(key) with semantic tensor type(value). If {value} is ``noop``, semantic tensor of the column is by default `TensorTuple`.
+        - cols(``list[str]``): specify only columns and take default setting for semantic tensor type of them.\n
+          - if length is 1, regard the 1st element as `TensorText`
+          - if length is 2, regard the 1st element as `TensorText`, 2nd element as `TensorCategory`
+          - Otherwise, regard all elements as `TensorTuple`
+        - cols(None): pass :data:`hf_dset.column_names` (list[str]) as cols.
+      hf_toker (:class:`transformers.PreTrainedTokenizer`, optional): Hugging Face tokenizer, used in decode and provide ``pad_idx`` for dynamic padding
+      neat_show (bool, optional): Show the original sentence instead of tokens joined by space.
+      n_inp (int, optional): take the first ``n_inp`` columns of ``cols`` as x, and the rest as y .
+
+    Example:
+      >>> tokenized_cola_train_set[0]
+      {'sentence': "Our friends won't buy this analysis, let alone the next one we propose.",
+       'label': 1,
+       'idx': 0,
+       'text_idxs': [ 2256,  2814,  2180,  1005,  1056,  4965,  2023,  4106,  1010,  2292, 2894,  1996,  2279,  2028,  2057, 16599,  1012]}
+      >>> hf_dset = HF_Datset(tokenized_cola_train_set, cols=['text_idxs', 'label'], hf_toker=tokenizer_electra_small_fast)
+      >>> len(hf_dset), hf_dset[0]
+      8551, (TensorText([ 2256,  2814,  2180,  1005,  1056,  4965,  2023,  4106,  1010,  2292, 2894,  1996,  2279,  2028,  2057, 16599,  1012]), TensorCategory(1))
+      >>> hf_dset.decode(hf_dset[0])
+      ("our friends won ' t buy this analysis , let alone the next one we propose .", '1')
+      # The wrapped dataset "is" also the original huggingface dataset
+      >>> hf_dset.column_names == tokenized_cola_train_set.column_names
+      True
+      # Manually specify `cols` with dict, here it is equivalent to the above. And addtionally, neatly decode samples.
+      >>> neat_hf_dset = HF_Datset(tokenized_cola_train_set, {'text_idxs':TensorText, 'label':TensorCategory}, hf_toker=tokenizer_electra_small_fast, neat_show=True)
+      >>> neat_hf_dset.decode(neat_hf_dset[0])
+      ("our friends won't buy this analysis, let alone the next one we propose.", '1')
+      # Note: Original set will be set to Pytorch format with columns specified in `cols`
+      >>> tokenized_cola_train_set[0]
+      {'label': tensor(1),
+       'text_idxs': tensor([ 2256,  2814,  2180,  1005,  1056,  4965,  2023,  4106,  1010,  2292, 2894,  1996,  2279,  2028,  2057, 16599,  1012])}
     """
     
     # some default setting for tensor type used in decoding
@@ -263,20 +302,25 @@ class HF_Dataset():
     raise AttributeError(f"Both 'HF_Dataset' object and 'nlp.Dataset' object have no '{name}' attribute ")
   
 class HF_Datasets(FilteredBase):
+  """Function as :class:`fastai2.data.core.Datasets` to create :class:`fastai2.data.core.Dataloaders` from a group of :class:`nlp.Dataset`s"""
+
   _dl_type,_dbunch_type = MySortedDL,DataLoaders
   
   @delegates(HF_Dataset.__init__)
-  def __init__(self, hf_dsets: dict, test_with_label=False, **kwargs):
+  def __init__(self, hf_dsets: dict, test_with_y=False, **kwargs):
     """
     Args:
-      `hf_dsets` (`Dict[nlp.Dataset]`): the order of dict items will be the order of `HF_Dataloader`s
-      `test_with_label` (`bool`, default:`False`): whether testset come with labels.
+      hf_dsets (`Dict[nlp.Dataset]`): Prerocessed Hugging Face Datasets, {key} is split name, {value} is :class:`nlp.Dataset`, order will become the order in :class:`fastai2.data.core.Dataloaders`.
+      test_with_y (bool, optional): Whether the test set come with y (answers) but not with fake y (e.g. all -1 label). 
+        If ``False``, tell only test set to construct samples from first ``n_inp`` columns (do not output fake y). 
+        And all datasets passed in ``hf_dsets`` with its name starts with "test" will be regarded as test set. 
+      kwargs: Passed to :class:`HF_Dataset`. Be sure to pass arguments that :class:`HF_Dataset` needs !!
     """
     cols, n_inp = kwargs.pop('cols', None), kwargs.get('n_inp', 1)
     self.hf_dsets = {};
     for split, dset in hf_dsets.items():
       if cols is None: cols = dset.column_names
-      if split.startswith('test') and not test_with_label: 
+      if split.startswith('test') and not test_with_y: 
         if isinstance(cols, list): _cols = cols[:n_inp]
         else: _cols = { k:v for _, (k,v) in zip(range(n_inp),cols.items()) }
       else: _cols = cols
@@ -290,14 +334,45 @@ class HF_Datasets(FilteredBase):
   def cache_dir(self): return Path(next(iter(self.hf_dsets.values())).cache_files[0]['filename']).parent
   
   @delegates(FilteredBase.dataloaders)
-  def dataloaders(self, device='cpu', cache_dir=None, cache_name=None, **kwargs):
+  def dataloaders(self, device='cpu', cache_dir=None, cache_name=None, dl_kwargs=None, **kwargs):
     """
     Args:
-      device (str, default:`'cpu'`)
-      cache_dir (`Optional[str]`, default: `None`): directory to store dataloader caches. if `None`, use cache directory of first `nlp.Dataset` stored.
-      cache_name (`Optional[str]`, default: `None`): format string with only one param `{split}` as cache file name under `cache_dir` for each split. If `None`, use autmatical cache path by hf/nlp.      
+      device (str): device where outputed batch will be on. Because a batch will be loaded to test when creating :class: `fastai2.data.core.Dataloaders`, to prevent always leaving a batch of tensor in cuda:0, using default value cpu and then ``dls.to(other device)`` at the time you want is suggested.
+      cache_dir (str, optional): directory to store caches of :class:`MySortedDL`. if ``None``, use cache directory of the first :class:`nlp.Dataset` in ``hf_dsets`` that passed to :method:`HF_Datasets.__init__`.
+      cache_name (str, optional): format string that includes one param "{split}", which will be replaced with name of split as cache file name under `cache_dir` for each split. If ``None``, tell :class:MySortedDL don't do caching.
+      dl_kwargs (list[dict], optional): ith item is addtional kwargs to be passed to initialization of ith dataloader for ith split
+      kwargs: Passed to :func:`fastai2.data.core.FilteredBase.dataloaders`
+    
+    Example:
+      >>> tokenized_cola
+      {'train': nlp.Dataset, 'validation': nlp.Dataset, 'test': nlp.Dataset}
+      >>> tokenized_cola['test'][0]
+      {'sentence': 'Bill whistled past the house.',
+       'label': -1, # Fake label. True labels are not open to the public.
+       'idx': 0,
+       'text_idxs': [3021, 26265, 2627, 1996, 2160, 1012]}
+      >>> dls = HF_Datasets(tokenized_cola,
+      ...                   cols=['text_idxs', 'label'], hf_toker=hf_tokenizer,  # args for HF_Dataset
+      ...                   ).dataloaders(bs=32 , cache_name="dl_cached_for_{split}") # args for MySortedDL
+      >>> dls.show_batch(max_n=2)
+                                                                                                                         text_idxs           label
+      ---------------------------------------------------------------------------------------------------------------------------------------------
+      0  everybody who has ever, worked in any office which contained any typewriter which had ever been used to type any letters which had    1
+         to be signed by any administrator who ever worked in any department like mine will know what i mean.
+      ---------------------------------------------------------------------------------------------------------------------------------------------
+      1  playing with matches is ; lots of fun, but doing, so and emptying gasoline from one can to another at the same time is a sport best   1
+         reserved for arsons.
+      # test set won't produce label becuase of `test_with_y=False`   
+      >>> dls[-1].show_batch(max_n=2) 
+                                                                                     text_idxs
+      ------------------------------------------------------------------------------------------
+      0  cultural commissioner megan smith said that the five ` ` soundscape'' pieces would ` `
+         give a festive air to park square, they're fun and interesting''.
+      ------------------------------------------------------------------------------------------
+      1  wendy is eager to sail around the world and bruce is eager to climb kilimanjaro, but 
+         neither of them can because money is too tight.
     """
-    dl_kwargs = kwargs.pop('dl_kwargs', [{} for _ in range(len(self.hf_dsets))])
+    if dl_kwargs is None: dl_kwargs = [{} for _ in range(len(self.hf_dsets))]
     # infer cache file names for each dataloader if needed
     dl_type = kwargs.pop('dl_type', self._dl_type)
     if dl_type==MySortedDL and cache_name:
@@ -316,6 +391,14 @@ class HF_Datasets(FilteredBase):
     return super().dataloaders(dl_kwargs=dl_kwargs, device=device, **kwargs)
 
 class HF_MergedDataset():
+  """Merge multiple :class:`nlp.Dataset` s to be a fake :class:`nlp.Dataset` be able to passed to :class:`HF_Dataset`
+  
+  Example:
+    >>> tokenized_wiki_train, tokenized_bookcorpus_train
+    Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...), Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...)
+    >>> merged_dset = HF_MergedDataset(tokenized_wiki_train, tokenized_bookcorpus_train)
+    >>> dls = HF_Datasets({'train': merged_dset}, cols=['input_ids'], hf_toker=hf_tokenizer).dataloaders(bs=128)
+  """
   def __init__(self, *datasets):
     self.dsets = datasets
     self.len = reduce(lambda a,d: a+len(d), self.dsets, 0)
