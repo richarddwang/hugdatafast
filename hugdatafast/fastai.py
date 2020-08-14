@@ -118,9 +118,42 @@ class MySortedDL(TfmdDL):
         # We don't use filter_fc here cuz we can't don't validate certaion samples in dev/test set. 
         return super().new(dataset=dataset, pad_idx=self.pad_idx, srtkey_fc=self.srtkey_fc, filter_fc=False, **kwargs)
 
-"To pr"
+# =========================
+#  Titled primitives
+# =========================
+
+class _Int(int, ShowPrint):
+    def __new__(cls, *args, **kwargs):
+        item = super().__new__(cls, *args)
+        for n,v in kwargs.items(): setattr(item, n, v)
+        return item
+
+class _Float(float, ShowPrint):
+    def __new__(cls, *args, **kwargs):
+        item = super().__new__(cls, *args)
+        for n,v in kwargs.items(): setattr(item, n, v)
+        return item
+
+class _Str(str, ShowPrint):
+    def __new__(cls, *args, **kwargs):
+        item = super().__new__(cls, *args)
+        for n,v in kwargs.items(): setattr(item, n, v)
+        return item
+
+class _Tuple(Tuple, ShowPrint):
+    def __new__(cls, *args, **kwargs):
+        item = super().__new__(cls, *args)
+        for n,v in kwargs.items(): setattr(item, n, v)
+        return item 
+
+class _L(L, ShowPrint):
+    def __new__(cls, *args, **kwargs):
+        item = super().__new__(cls, *args)
+        for n,v in kwargs.items(): setattr(item, n, v)
+        return item  
+
 # only change "label" to "title"
-def my_show_title(o, ax=None, ctx=None, title=None, color='black', **kwargs):
+def _show_title(o, ax=None, ctx=None, title=None, color='black', **kwargs):
     "Set title of `ax` to `o`, or print `o` if `ax` is `None`"
     ax = ifnone(ax,ctx)
     if ax is None: print(o)
@@ -133,44 +166,37 @@ def my_show_title(o, ax=None, ctx=None, title=None, color='black', **kwargs):
         ax = ax.append(pd.Series({title: o}))
     return ax
 
-class MyShowTitle:
-    "Base class that adds a simple `show`"
-    
-    @classmethod
-    def init(cls, data, **kwargs):
-        item = cls(data)
-        item._show_args = kwargs
-        return item
-
+class _ShowTitle:
     def show(self, ctx=None, **kwargs):
-        "Show self"
-        return my_show_title(str(self), ctx=ctx, **merge(self._show_args, kwargs))
+      kwargs['title'] = kwargs.pop('title', getattr(self, 'title', self.default_title))
+      return _show_title(str(self), ctx=ctx, **kwargs)
 
 # it seems that python prioritising prior inherited class when finding methods   
 
-class MyTitledInt(MyShowTitle, Int): pass
+class _TitledInt(_ShowTitle, _Int): default_title = 'int'
 
-class MyTitledFloat(MyShowTitle, Float): pass
+class _TitledFloat(_ShowTitle, _Float): default_title = 'float'
 
-# I created it
-class MyTitledBool(MyShowTitle, Int): # python says bool can't be base class
-    def show(self, ctx=None, **kwargs):
-        "Show self"
-        return my_show_title(str(bool(self)), ctx=ctx, **merge(self._show_args, kwargs))
+# I created it, but it just print book likt int, haven't find a way to solve it
+class _TitledBool(_ShowTitle, _Int): # python says bool can't be base class
+    default_title = 'bool'
 
-class MyTitledStr(MyShowTitle, Str):
-  def truncate(self, n):
-    "Truncate self to `n`"
-    words = self.split(' ')[:n]
-    return MyTitledStr.init(' '.join(words), **self._show_args)
+class _TitledStr(_ShowTitle, _Str):
+    default_title = 'text'
+    def truncate(self, n):
+        "Truncate self to `n`"
+        words = self.split(' ')[:n]
+        return _TitledStr(' '.join(words), title=getattr(self, 'title', 'text'))
 
-class MyTitledTuple(MyShowTitle, Tuple): pass
+class _TitledTuple(_ShowTitle, _Tuple): default_title = 'list'
 
-class MyCategory(MyShowTitle, Str): pass
+class _Category(_ShowTitle, _Str): default_title = 'label'
 
-class MyMultiCategory(MyShowTitle, L):
+class _MultiCategory(_ShowTitle, _L):
+    default_title = 'labels'
     def show(self, ctx=None, sep=';', color='black', **kwargs):
-        return my_show_title(sep.join(self.map(str)), ctx=ctx, color=color, **merge(self._show_args, kwargs))
+        kwargs['title'] = kwargs.pop('title', getattr(self, 'title', self.default_title))
+        return __show_title(sep.join(self.map(str)), ctx=ctx, color=color, **kwargs)
 
 """ Caution !!
 These two function is inperfect.
@@ -272,10 +298,10 @@ class HF_Dataset():
 
   @typedispatch
   def _decode(self, t:torch.Tensor, title):
-    if t.shape: title_cls = MyTitledTuple
-    elif isinstance(t.item(),bool): title_cls = MyTitledBool # bool is also int, so check whether is bool first
-    elif isinstance(t.item(),float): title_cls = MyTitledFloat
-    elif isinstance(t.item(),int): title_cls = MyTitledInt
+    if t.shape: title_cls = _TitledTuple
+    elif isinstance(t.item(),bool): title_cls = _TitledBool # bool is also int, so check whether is bool first
+    elif isinstance(t.item(),float): title_cls = _TitledFloat
+    elif isinstance(t.item(),int): title_cls = _TitledInt
     return self._decode_title(t.tolist(), title_cls , title)
 
   @typedispatch
@@ -283,16 +309,16 @@ class HF_Dataset():
     assert self.hf_toker, "You should give a huggingface tokenizer if you want to show batch."
     if self.neat_show: text = self.hf_toker.decode([idx for idx in t if idx != self.hf_toker.pad_token_id])
     else: text = ' '.join(self.hf_toker.convert_ids_to_tokens(t))
-    return self._decode_title(text, MyTitledStr, title)
+    return self._decode_title(text, _TitledStr, title)
 
   @typedispatch
   def _decode(self, t:LMTensorText, title): return self._decode[TensorText](self, t, title)
 
   @typedispatch
-  def _decode(self, t:TensorCategory, title): return self._decode_title(t.item(), MyCategory, title)
+  def _decode(self, t:TensorCategory, title): return self._decode_title(t.item(), _Category, title)
 
   @typedispatch
-  def _decode(self, t:TensorMultiCategory, title): return self._decode_title(t.tolist(), MyMultiCategory, title)
+  def _decode(self, t:TensorMultiCategory, title): return self._decode_title(t.tolist(), _MultiCategory, title)
 
   def __getattr__(self, name):
     "If not defined, let the nlp.Dataset in it act for us."

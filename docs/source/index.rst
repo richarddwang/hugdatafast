@@ -1,18 +1,20 @@
-# hugdatafast
+hugdatafast
+=============
 
 This package is to provide a bridge between fastai and huggingface/nlp and 
 elegantly deal with the data pipeline for NLPers.
 
-Author: Richard Wang
+Author: Richard Wang \n
 Twitter: `Richard Wang <https://twitter.com/_RichardWang_>`_ (You can follow to get news of the package if there is. Or see my recent research.)
 
-## Installation
-```bash
-pip install hugdatafast
-```
-This will install also lastest ``fastai2`` and ``nlp``.
+Installation
+---------------
 
-## Doc
+::
+
+    pip install hugdatafast
+
+This will install also lastest ``fastai2`` and ``nlp``.
 
 .. toctree::
     :maxdepth: 2
