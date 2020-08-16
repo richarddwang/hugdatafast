@@ -1,4 +1,5 @@
 import setuptools
+from hugdatafast.__init__ import __version__
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -10,7 +11,7 @@ REQUIRED_PKGS = [
 
 setuptools.setup(
     name="hugdatafast",
-    version="0.3.1",
+    version=__version__,
     author="Richard Wang",
     author_email="richardyy1188@gmail.com",
     description="The elegant bridge between hugginface data and fastai2",

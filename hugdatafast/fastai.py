@@ -7,7 +7,6 @@ import nlp
 from fastai2.text.all import *
 
 
-
 @delegates()
 class MySortedDL(TfmdDL):
     "A :class:`DataLoader` that do smart batching and dynamic padding. Different from :class:`SortedDL`, it automatically pad every attribute of samples, is able to filter samples, and can be cached to sort/filter only at first time."
@@ -293,8 +292,8 @@ class HF_Dataset():
     return tuple( self._decode(o_, self.col_names[i]) for i, o_ in enumerate(o) )
 
   def _decode_title(self, d, title_cls, title): 
-    if title: return title_cls.init(d, title=title)
-    else: return title_cls.init(d)
+    if title: return title_cls(d, title=title)
+    else: return title_cls(d)
 
   @typedispatch
   def _decode(self, t:torch.Tensor, title):

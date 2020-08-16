@@ -292,10 +292,8 @@ class ELECTRADataTransform(CombineTransform):
       delimiter (str): what is the delimiter to segment sentences in the input text
       kwargs: passed to :class:`CombineTransform`
     """
-    if isinstance(text_col, str): text_col={text_col:text_col}
-    assert isinstance(text_col, dict)
     self.is_docs = is_docs
-    self.in_col, self.out_col = next(iter(text_col.items()))
+    self.in_col = text_col
     self._current_sentences = []
     self._current_length = 0
     self._max_length = max_length
@@ -303,11 +301,13 @@ class ELECTRADataTransform(CombineTransform):
     self.cls_idx, self.sep_idx = hf_toker.cls_token_id, hf_toker.sep_token_id
     self.hf_toker = hf_toker
     self.delimiter = delimiter
-    super().__init__(hf_dset, inp_cols=[self.in_col], out_cols=[self.out_col], 
+    super().__init__(hf_dset, inp_cols=[self.in_col], out_cols=['input_ids','attention_mask','token_type_ids'], 
                     init_attrs=['_current_sentences', '_current_length', '_target_length'], **kwargs)
 
+  """
+  This two main functions adapts official source code creates pretraining dataset, to CombineTransform
+  """
   def accumulate(self, text):
-    """ Implement the abstract method"""
     sentences = text.split(self.delimiter)
     for sentence in sentences:
       if not sentence: continue # skip empty
@@ -318,13 +318,12 @@ class ELECTRADataTransform(CombineTransform):
       self.commit_example(self.create_example())
   
   def create_example(self):
-    """ Implement the abstract method"""
-    input_ids = self._create_example() # this line reset _current_sentences and _current_length in the end
-    return {self.out_col: input_ids}
+    input_ids, token_type = self._create_example() # this line reset _current_sentences and _current_length in the end
+    return {'input_ids': input_ids, 'attention_mask':[1]*len(input_ids), 'token_type_ids':token_type}
   # ...................................................
 
   def add_line(self, tokids):
-    # Adds a line of text to the current example being built.
+    """Adds a line of text to the current example being built."""
     self._current_sentences.append(tokids)
     self._current_length += len(tokids)
     if self._current_length >= self._target_length:
@@ -373,9 +372,11 @@ class ELECTRADataTransform(CombineTransform):
   def _make_example(self, first_segment, second_segment):
     """Converts two "segments" of text into a tf.train.Example."""
     input_ids = [self.cls_idx] + first_segment + [self.sep_idx]
+    token_type = [0]*len(input_ids)
     if second_segment:
       input_ids += second_segment + [self.sep_idx]
-    return input_ids
+      token_type += [1]*(len(second_segment)+1)
+    return input_ids, token_type
 
   def __getstate__(self):
     "specify something you don't want pickle here, remember to use copy to not modfiy orginal instance"
