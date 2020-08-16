@@ -9,6 +9,9 @@ Base use case
     >>> from nlp import load_dataset
     >>> from hugdatafast import *
 
+.. note::
+   This will also implicitly do ``from fastai2.text.all import *``
+
 Can you turn your data pipeline into only 3 lines ?
 
 .. code-block::
