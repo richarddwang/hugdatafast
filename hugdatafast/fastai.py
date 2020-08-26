@@ -4,7 +4,7 @@ import json
 from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 import nlp
-from fastai2.text.all import *
+from fastai.text.all import *
 
 
 @delegates()
@@ -20,9 +20,11 @@ class MySortedDL(TfmdDL):
               - If ``False``, not sort. 
             filter_fc (``*args->bool``, optional): Return ``True`` to keep the sample.
             pad_idx (``int``, optional): pad each attribute of samples to the max length of its max length within the batch.\n 
+              - If ``List[int]``, specify pad_idx for each attribute of a sample. e.g. a sample is a tuple (masked_inputs, labels), `pad_idx=[0 ,-100]` pad masked_inputs with 0, labels with -100.
               - If ``False``, do no padding. 
               - If ``None``, try ``dataset.pad_idx``, do no padding if no such attribute.
             cache_file (``str``, optional): Path of a json file to cache info for sorting and filtering.
+            kwargs: key arguments for `TfmDl` or `DataLoader`
 
         Example:
             >>> samples = [ (torch.tensor([1]), torch.tensor([7,8]), torch.tensor(1)),,
@@ -45,12 +47,14 @@ class MySortedDL(TfmdDL):
         # Defaults
         if srtkey_fc is not False: srtkey_fc = lambda *x: len(x[0])
         if pad_idx is None: pad_idx = getattr(dataset, 'pad_idx', False)
+        if isinstance(pad_idx, int): pad_idxs = [pad_idx] * len(dataset[0])
+        elif isinstance(pad_idx, (list, tuple)): pad_idxs = pad_idx
         cache_file = Path(cache_file) if cache_file else None
         idmap = list(range(len(dataset)))
 
         # Save attributes
         super().__init__(dataset, **kwargs)
-        store_attr(self, 'pad_idx,srtkey_fc,filter_fc,cache_file,idmap')
+        store_attr(self, 'pad_idxs,srtkey_fc,filter_fc,cache_file,idmap')
 
         # Prepare records for sorting / filtered samples
         if srtkey_fc or filter_fc:
@@ -88,7 +92,7 @@ class MySortedDL(TfmdDL):
 
     def create_batch(self, samples):
         if self.pad_idx is False: return super().create_batch(samples)
-        return tuple( pad_sequence(attr, batch_first=True, padding_value=self.pad_idx) if attr[0].shape else torch.stack(attr) for i, attr in enumerate(zip(*samples)))
+        return tuple( pad_sequence(attr, batch_first=True, padding_value=self.pad_idxs[i]) if attr[0].shape and isinstance(self.pad_idxs[i], int) else torch.stack(attr) for i, attr in enumerate(zip(*samples)))
 
     def get_idxs(self):
         idxs = super().get_idxs()
@@ -114,6 +118,8 @@ class MySortedDL(TfmdDL):
 
     @delegates(TfmdDL.new)
     def new(self, dataset=None, **kwargs):
+        if 'get_idxs' in kwargs: # when Learner.get_preds, dataload has `get_idxs` will be cloned. So we need to prevent sorting again
+          kwargs['cache_file'] = self.cache_file
         # We don't use filter_fc here cuz we can't don't validate certaion samples in dev/test set. 
         return super().new(dataset=dataset, pad_idx=self.pad_idx, srtkey_fc=self.srtkey_fc, filter_fc=False, **kwargs)
 
@@ -139,7 +145,7 @@ class _Str(str, ShowPrint):
         for n,v in kwargs.items(): setattr(item, n, v)
         return item
 
-class _Tuple(Tuple, ShowPrint):
+class _Tuple(fastuple, ShowPrint):
     def __new__(cls, *args, **kwargs):
         item = super().__new__(cls, *args)
         for n,v in kwargs.items(): setattr(item, n, v)
@@ -220,7 +226,7 @@ def show_results(x: tuple, y, samples, outs, ctxs=None, max_n=10, trunc_at=150, 
 
 class HF_Dataset():
   """A wrapper for :class:`nlp.Dataset`.  It will behavior like original :class:`nlp.Dataset`, 
-  but also function as a :class:`fastai2.data.core.datasets` that provides samples and decodes."""
+  but also function as a :class:`fastai.data.core.datasets` that provides samples and decodes."""
   
   def __init__(self, hf_dset, cols=None, hf_toker=None, neat_show=False, n_inp=1):
     """
@@ -327,7 +333,7 @@ class HF_Dataset():
     raise AttributeError(f"Both 'HF_Dataset' object and 'nlp.Dataset' object have no '{name}' attribute ")
   
 class HF_Datasets(FilteredBase):
-  """Function as :class:`fastai2.data.core.Datasets` to create :class:`fastai2.data.core.Dataloaders` from a group of :class:`nlp.Dataset`s"""
+  """Function as :class:`fastai.data.core.Datasets` to create :class:`fastai.data.core.Dataloaders` from a group of :class:`nlp.Dataset`s"""
 
   _dl_type,_dbunch_type = MySortedDL,DataLoaders
   
@@ -335,7 +341,7 @@ class HF_Datasets(FilteredBase):
   def __init__(self, hf_dsets: dict, test_with_y=False, **kwargs):
     """
     Args:
-      hf_dsets (`Dict[nlp.Dataset]`): Prerocessed Hugging Face Datasets, {key} is split name, {value} is :class:`nlp.Dataset`, order will become the order in :class:`fastai2.data.core.Dataloaders`.
+      hf_dsets (`Dict[nlp.Dataset]`): Prerocessed Hugging Face Datasets, {key} is split name, {value} is :class:`nlp.Dataset`, order will become the order in :class:`fastai.data.core.Dataloaders`.
       test_with_y (bool, optional): Whether the test set come with y (answers) but not with fake y (e.g. all -1 label). 
         If ``False``, tell only test set to construct samples from first ``n_inp`` columns (do not output fake y). 
         And all datasets passed in ``hf_dsets`` with its name starts with "test" will be regarded as test set. 
@@ -362,11 +368,11 @@ class HF_Datasets(FilteredBase):
   def dataloaders(self, device='cpu', cache_dir=None, cache_name=None, dl_kwargs=None, **kwargs):
     """
     Args:
-      device (str): device where outputed batch will be on. Because a batch will be loaded to test when creating :class: `fastai2.data.core.Dataloaders`, to prevent always leaving a batch of tensor in cuda:0, using default value cpu and then ``dls.to(other device)`` at the time you want is suggested.
+      device (str): device where outputed batch will be on. Because a batch will be loaded to test when creating :class: `fastai.data.core.Dataloaders`, to prevent always leaving a batch of tensor in cuda:0, using default value cpu and then ``dls.to(other device)`` at the time you want is suggested.
       cache_dir (str, optional): directory to store caches of :class:`MySortedDL`. if ``None``, use cache directory of the first :class:`nlp.Dataset` in ``hf_dsets`` that passed to :method:`HF_Datasets.__init__`.
       cache_name (str, optional): format string that includes one param "{split}", which will be replaced with name of split as cache file name under `cache_dir` for each split. If ``None``, tell :class:MySortedDL don't do caching.
       dl_kwargs (list[dict], optional): ith item is addtional kwargs to be passed to initialization of ith dataloader for ith split
-      kwargs: Passed to :func:`fastai2.data.core.FilteredBase.dataloaders`
+      kwargs: Passed to :func:`fastai.data.core.FilteredBase.dataloaders`
     
     Example:
       >>> tokenized_cola

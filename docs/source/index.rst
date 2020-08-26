@@ -15,7 +15,7 @@ Installation
 
     pip install hugdatafast
 
-This will install also the lastest ``fastai2`` and ``nlp``.
+This will install also the lastest ``fastai`` and ``nlp``.
 
 .. toctree::
     :maxdepth: 2

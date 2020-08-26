@@ -10,7 +10,7 @@ Base use case
     >>> from hugdatafast import *
 
 .. note::
-   This will also implicitly do ``from fastai2.text.all import *``
+   This will also implicitly do ``from fastai.text.all import *``
 
 Can you turn your data pipeline into only 3 lines ?
 
@@ -23,7 +23,7 @@ Can you turn your data pipeline into only 3 lines ?
 
 Now you can enjoy 
 
-1. :func:`show_batch` of fastai2 \n
+1. :func:`show_batch` of fastai \n
 Even you don't use fastai to train, you can still use as a normal DataLoader
 
 .. code-block::
@@ -52,7 +52,7 @@ Even you don't use fastai to train, you can still use as a normal DataLoader
     1 [CLS] as a teacher , you have to deal simultaneously with the administration ' s pressure   0    1
       on you to succeed , and the children ' s to be a nice guy . [SEP] [PAD] [PAD]
     
-3. Use it as normal Dataloaders if you don't use fastai . (Try fastai !)
+3. Use it as normal Dataloaders if you don't use fastai .
 
 .. code-block::
 

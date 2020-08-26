@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 REQUIRED_PKGS = [
-    'fastai2',
+    'fastai',
     'nlp',
 ]
 
@@ -14,7 +14,7 @@ setuptools.setup(
     version=__version__,
     author="Richard Wang",
     author_email="richardyy1188@gmail.com",
-    description="The elegant bridge between hugginface data and fastai2",
+    description="The elegant bridge between hugginface data and fastai",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/richarddwang/hugdatafast",
