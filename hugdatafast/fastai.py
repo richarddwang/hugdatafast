@@ -404,6 +404,8 @@ class HF_Datasets(FilteredBase):
          neither of them can because money is too tight.
     """
     if dl_kwargs is None: dl_kwargs = [{} for _ in range(len(self.hf_dsets))]
+    elif isinstance(dl_kwargs, dict):
+      dl_kwargs = [ dl_kwargs[split] if split in dl_kwargs else {} for split in self.hf_dsets]
     # infer cache file names for each dataloader if needed
     dl_type = kwargs.pop('dl_type', self._dl_type)
     if dl_type==MySortedDL and cache_name:
@@ -412,7 +414,9 @@ class HF_Datasets(FilteredBase):
       cache_dir.mkdir(exist_ok=True)
       if not cache_name.endswith('.json'): cache_name += '.json'
       for i, split in enumerate(self.hf_dsets):
-        dl_kwargs[i]['cache_file'] = cache_dir/cache_name.format(split=split)
+        filled_cache_name = dl_kwargs[i].pop('cache_name', cache_name.format(split=split))
+        if 'cache_file' not in dl_kwargs[i]:
+          dl_kwargs[i]['cache_file'] = cache_dir/filled_cache_name
     # change default to not drop last
     kwargs['drop_last'] = kwargs.pop('drop_last', False)
     # when corpus like glue/ax has only testset, set it to non-train setting
@@ -421,9 +425,37 @@ class HF_Datasets(FilteredBase):
       kwargs['drop_last'] = False
     return super().dataloaders(dl_kwargs=dl_kwargs, device=device, **kwargs)
 
+def hf_merge_datasets(*datasets_s):
+  """
+  Args:
+    *datasets_s: multiple dicts that contains :class:`nlp.Dataset`, each dict must have the same keys (split names), all datasets should have some columns with the same name.
+
+  Returns
+    Dict[ str : :class:`HF_MergeDataset` ]
+
+  Example:
+    # Just for example, you may not concates rte and wnli datasets in real.
+    >>> rte, wnli = nlp.load_dataset('glue', 'rte'), nlp.load_dataset('glue', 'wnli')
+    # rte: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...}, wnli: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...
+    >>> merge_dsets = hf_merge_datasets(rte, wnli)
+    {'train': HF_MergedDataset, 'validation': HF_MergedDataset, 'test': HF_MergedDataset}
+  """
+  keys_s = [ list(dsets.keys()) for dsets in datasets_s ]
+  for keys in keys_s: assert keys == keys_s[0]
+  merged_dsets = {}
+  for split in keys:
+    merged_dsets[split] = HF_MergedDataset(*[ dsets[split] for dsets in datasets_s])
+  return merged_dsets
+
 class HF_MergedDataset():
   """Merge multiple :class:`nlp.Dataset` s to be a fake :class:`nlp.Dataset` be able to passed to :class:`HF_Dataset`
   
+  Args:
+    *datasets : multiple :class:`nlp.Dataset` s, that all of these have some columns with the same names.
+
+  Returns:
+    HF_MergedDataset: a :class:`nlp.Dataset` like object that concats passed datasets, with basic functions to be turned into :class:`HF_Dataset`.
+
   Example:
     >>> tokenized_wiki_train, tokenized_bookcorpus_train
     Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...), Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...)

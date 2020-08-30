@@ -14,7 +14,8 @@ class HF_BaseTransform():
       out_cols (List[str]): output column names. If specified, it will assure they are not in the columns to be removed.
     """
     # check arguments
-    if isinstance(hf_dsets, nlp.Dataset): hf_dsets = {'Single': hf_dsets}
+    if isinstance(hf_dsets, nlp.Dataset): hf_dsets = {'Single': hf_dsets}; self.single = True
+    else: self.single = False
     assert isinstance(hf_dsets, dict)
     # save attributes
     self.hf_dsets = hf_dsets
@@ -49,12 +50,14 @@ class HF_BaseTransform():
     new_dsets = {}
     for split, dset in self.hf_dsets.items():
       if self.remove_original: kwargs['remove_columns'] = dset.column_names
-      if cache_name: kwargs['cache_file_name'] = str(cache_dir/cache_name.format(split=split))
+      if cache_name: 
+        if self.single: kwargs['cache_file_name'] = str(cache_dir/cache_name)
+        else: kwargs['cache_file_name'] = str(cache_dir/cache_name.format(split=split))
       kwargs.update(split_kwargs[split])
       if hasattr(kwargs, 'remove_columns'): self._check_outcols(kwargs['remove_columns'], split)
       new_dsets[split] = self._map(dset, split, **kwargs)
     # return
-    if len(new_dsets)==1 and 'Single' in new_dsets: return new_dsets['Single']
+    if self.single: return new_dsets['Single']
     else: return new_dsets
 
   def _check_outcols(self, out_cols, rm_cols, split):

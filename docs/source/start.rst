@@ -62,9 +62,11 @@ Even you don't use fastai to train, you can still use as a normal DataLoader
 Other use cases
 ----------------
 
-1. Use your own dataset ? \n
-- `nlp.Dataset s from local structured files (csv, json, ...) <https://huggingface.co/nlp/loading_datasets.html#from-local-files>`_
-- `nlp.Dataset s from custom loading script <https://huggingface.co/nlp/add_dataset.html>`_
+1. Use your own dataset ?
+
+* `nlp.Dataset s from local structured files (csv, json, ...) <https://huggingface.co/nlp/loading_datasets.html#from-local-files>`_
+
+* `nlp.Dataset s from custom loading script <https://huggingface.co/nlp/add_dataset.html>`_
 
 2. Use custom tokenization or custom processing function ?
 use :class:`HF_Transform`
@@ -75,3 +77,10 @@ use :class:`HF_Transform`
     ...   example['tok_ids'] = hf_tokenizer.encode(example['sentence1'], example['sentence2'])
     ...   return example
     >>> tokenized_rte = HF_Transform(rte, custom_tokenize).map()
+
+``hugdatafast`` in practice
+-------------------------
+You can see how to use ``hugdatafast`` in real situations. Also, we're welcome you to share how you use 
+``hugdatafast`` in your project, contact me via github or twitter to put your project link here.
+
+* `electra_pytorch <https://github.com/richarddwang/hugdatafast>`_ : Pretrain ELECTRA and finetune on GLUE benchmark

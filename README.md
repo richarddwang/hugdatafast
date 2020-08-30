@@ -1,7 +1,7 @@
 # hugdatafast
 The elegant integration of huggingface/nlp and fastai, and some handy data transformation for huggingface/nlp.
 
-🎓 ** Documentation ** : https://hugdatafast.readthedocs.io/en/latest/
+🎓 **Documentation** : https://hugdatafast.readthedocs.io/en/latest/
 
 # Install
 `pip install hugdatafast`
