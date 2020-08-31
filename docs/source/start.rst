@@ -1,6 +1,8 @@
+==================
 Get Started
 ==================
 
+-----------------
 Base use case
 -----------------
 
@@ -54,13 +56,14 @@ Even you don't use fastai to train, you can still use as a normal DataLoader
     
 3. Use it as normal Dataloaders if you don't use fastai .
 
-.. code-block::
+::
 
     >>> train_dataloader, val_dataloader, test_dataloader = dls[0], dls[1], dls[2]
     >>> for b in train_dataloader: break
 
+------------------
 Other use cases
-----------------
+------------------
 
 1. Use your own dataset ?
 
@@ -78,9 +81,11 @@ use :class:`HF_Transform`
     ...   return example
     >>> tokenized_rte = HF_Transform(rte, custom_tokenize).map()
 
+----------------------------
 ``hugdatafast`` in practice
--------------------------
-You can see how to use ``hugdatafast`` in real situations. Also, we're welcome you to share how you use 
+----------------------------
+
+You can see how to use ``hugdatafast`` in the real situations. Also, we're welcome you to share how you use 
 ``hugdatafast`` in your project, contact me via github or twitter to put your project link here.
 
 * `electra_pytorch <https://github.com/richarddwang/hugdatafast>`_ : Pretrain ELECTRA and finetune on GLUE benchmark
