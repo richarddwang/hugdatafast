@@ -434,8 +434,7 @@ def hf_merge_datasets(*datasets_s):
     Dict[ str : :class:`HF_MergeDataset` ]
 
   Example:
-    # Just for example, you may not concates rte and wnli datasets in real.
-    >>> rte, wnli = nlp.load_dataset('glue', 'rte'), nlp.load_dataset('glue', 'wnli')
+    >>> rte, wnli = nlp.load_dataset('glue', 'rte'), nlp.load_dataset('glue', 'wnli') # Just for example, you may not concates rte and wnli datasets in real.
     # rte: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...}, wnli: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...
     >>> merge_dsets = hf_merge_datasets(rte, wnli)
     {'train': HF_MergedDataset, 'validation': HF_MergedDataset, 'test': HF_MergedDataset}

@@ -1,10 +1,12 @@
+==================
 Get Started
 ==================
 
+-----------------
 Base use case
 -----------------
 
-.. code-block::
+::
 
     >>> from nlp import load_dataset
     >>> from hugdatafast import *
@@ -14,7 +16,7 @@ Base use case
 
 Can you turn your data pipeline into only 3 lines ?
 
-.. code-block::
+::
 
     >>> dataset = load_dataset('glue', 'cola') 
     -> {'train': nlp.Dataset, 'validation': nlp.Dataset, 'test': nlp.Dataset}
@@ -26,7 +28,7 @@ Now you can enjoy
 1. :func:`show_batch` of fastai \n
 Even you don't use fastai to train, you can still use as a normal DataLoader
 
-.. code-block::
+::
 
     >>> dls.show_batch(max_n=2)
                                                                                                                 text_idxs       label
@@ -39,7 +41,7 @@ Even you don't use fastai to train, you can still use as a normal DataLoader
 
 2. Train model on the data using fastai, and also show the prediction
 
-.. code-block::
+::
 
     >>> learn = Learner(dls, your_model, loss_func=CrossEntropyLossFlat())
     >>> learn.fit(3)
@@ -54,13 +56,14 @@ Even you don't use fastai to train, you can still use as a normal DataLoader
     
 3. Use it as normal Dataloaders if you don't use fastai .
 
-.. code-block::
+::
 
     >>> train_dataloader, val_dataloader, test_dataloader = dls[0], dls[1], dls[2]
     >>> for b in train_dataloader: break
 
+------------------
 Other use cases
-----------------
+------------------
 
 1. Use your own dataset ?
 
@@ -71,16 +74,18 @@ Other use cases
 2. Use custom tokenization or custom processing function ?
 use :class:`HF_Transform`
 
-.. code-block::
+::
 
     >>> def custom_tokenize(example):
     ...   example['tok_ids'] = hf_tokenizer.encode(example['sentence1'], example['sentence2'])
     ...   return example
     >>> tokenized_rte = HF_Transform(rte, custom_tokenize).map()
 
+----------------------------
 ``hugdatafast`` in practice
--------------------------
-You can see how to use ``hugdatafast`` in real situations. Also, we're welcome you to share how you use 
+----------------------------
+
+You can see how to use ``hugdatafast`` in the real situations. Also, You are welcome to share how you use 
 ``hugdatafast`` in your project, contact me via github or twitter to put your project link here.
 
 * `electra_pytorch <https://github.com/richarddwang/hugdatafast>`_ : Pretrain ELECTRA and finetune on GLUE benchmark
