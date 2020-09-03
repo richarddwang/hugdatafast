@@ -18,15 +18,15 @@ Can you turn your data pipeline into only 3 lines ?
 
 ::
 
-    >>> dataset = load_dataset('glue', 'cola') 
+    >>> datasets = load_dataset('glue', 'cola') 
     -> {'train': nlp.Dataset, 'validation': nlp.Dataset, 'test': nlp.Dataset}
-    >>> tokenized_dataset = HF_TokenizeTfm(dataset, {'sentence':'text_idxs'}, hf_tokenizer).map() 
-    >>> dls = HF_Datasets(tokenized_dataset, cols=['text_idxs', 'label'], hf_toker=hf_tokenizer).dataloaders(bs=64) 
+    >>> tokenized_datasets = datasets.map(simple_tokenize_func({'sentence':'text_idxs'}, hf_tokenizer))
+    >>> dls = HF_Datasets(tokenized_datasets, cols=['text_idxs', 'label'], hf_toker=hf_tokenizer).dataloaders(bs=64) 
 
 Now you can enjoy 
 
 1. :func:`show_batch` of fastai \n
-Even you don't use fastai to train, you can still use as a normal DataLoader
+Inspect your processed data and quickly check if there is anything wrong with your data processing.
 
 ::
 
@@ -88,4 +88,4 @@ use :class:`HF_Transform`
 You can see how to use ``hugdatafast`` in the real situations. Also, You are welcome to share how you use 
 ``hugdatafast`` in your project, contact me via github or twitter to put your project link here.
 
-* `electra_pytorch <https://github.com/richarddwang/hugdatafast>`_ : Pretrain ELECTRA and finetune on GLUE benchmark
+* `electra_pytorch <https://github.com/richarddwang/electra_pytorch>`_ : Pretrain ELECTRA and finetune on GLUE benchmark

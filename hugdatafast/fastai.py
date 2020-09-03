@@ -201,7 +201,7 @@ class _MultiCategory(_ShowTitle, _L):
     default_title = 'labels'
     def show(self, ctx=None, sep=';', color='black', **kwargs):
         kwargs['title'] = kwargs.pop('title', getattr(self, 'title', self.default_title))
-        return __show_title(sep.join(self.map(str)), ctx=ctx, color=color, **kwargs)
+        return _show_title(sep.join(self.map(str)), ctx=ctx, color=color, **kwargs)
 
 """ Caution !!
 These two function is inperfect.
@@ -277,8 +277,7 @@ class HF_Dataset():
     assert isinstance(cols, dict)
     
     # make dataset output pytorch tensor
-    if hf_dset.format['type'] != 'torch': 
-      hf_dset.set_format( type='torch', columns=list(cols.keys()) )
+    hf_dset.set_format( type='torch', columns=list(cols.keys()) )
 
     # store attributes
     self.pad_idx = hf_toker.pad_token_id

@@ -7,6 +7,8 @@ The elegant integration of huggingface/nlp and fastai, and some handy data trans
 `pip install hugdatafast`
 
 # Furture Plan
-- I would like to merge this library to fastai and huggingface/nlp respectively. But I may have no time for it. You're welcome to help the library merged to the two.
-- The implemenatation of `ConcatTransform` works but might be too complexed to extend, so I may discuss with huggingface to see how to improve it, if I have time.
-- Currently, it is designed to work with the dataset part of huggingface/nlp, I may also integrate metric part of it.
+- I would like to merge this library to fastai and huggingface/nlp respectively. But I may have no time for it. You're welcome to pr this library to the two libraries.
+
+- The implemenatation of `CombineTransform` works but might be too complexed to extend, hope HuggingFace or someone come up with some great ideas.
+
+- Currently, it is designed to work with the dataset part of huggingface/nlp, I may also integrate the part of metric or not.
