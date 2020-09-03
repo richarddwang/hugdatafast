@@ -12,3 +12,6 @@ The elegant integration of huggingface/nlp and fastai, and some handy data trans
 - The implemenatation of `CombineTransform` works but might be too complexed to extend, hope HuggingFace or someone come up with some great ideas.
 
 - Currently, it is designed to work with the dataset part of huggingface/nlp, I may also integrate the part of metric or not.
+
+# Quick Intro
+![hugdatafast_fastai](https://user-images.githubusercontent.com/17963619/92091020-be672f00-ee02-11ea-84c0-d54b4855ff4b.png)
