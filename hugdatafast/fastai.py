@@ -430,7 +430,7 @@ def hf_merge_datasets(*datasets_s):
     *datasets_s: multiple dicts that contains :class:`nlp.Dataset`, each dict must have the same keys (split names), all datasets should have some columns with the same name.
 
   Returns
-    Dict[ str : :class:`HF_MergeDataset` ]
+    :class:`nlp.DatasetDict`
 
   Example:
     >>> rte, wnli = nlp.load_dataset('glue', 'rte'), nlp.load_dataset('glue', 'wnli') # Just for example, you may not concates rte and wnli datasets in real.
@@ -443,7 +443,7 @@ def hf_merge_datasets(*datasets_s):
   merged_dsets = {}
   for split in keys:
     merged_dsets[split] = HF_MergedDataset(*[ dsets[split] for dsets in datasets_s])
-  return merged_dsets
+  return nlp.DatasetDict(merged_dsets)
 
 class HF_MergedDataset():
   """Merge multiple :class:`nlp.Dataset` s to be a fake :class:`nlp.Dataset` be able to passed to :class:`HF_Dataset`

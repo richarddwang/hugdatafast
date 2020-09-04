@@ -71,15 +71,17 @@ Other use cases
 
 * `nlp.Dataset s from custom loading script <https://huggingface.co/nlp/add_dataset.html>`_
 
-2. Use custom tokenization or custom processing function ?
-use :class:`HF_Transform`
+2. Need to combine examples to generate new example ? (e.g. Traditional language model) 
 
 ::
 
-    >>> def custom_tokenize(example):
-    ...   example['tok_ids'] = hf_tokenizer.encode(example['sentence1'], example['sentence2'])
-    ...   return example
-    >>> tokenized_rte = HF_Transform(rte, custom_tokenize).map()
+    >>> lm_datasets = LMTransform(datasets, max_len=20, text_col='text_idxs').map()
+    >>> hf_tokenizer.decode(lm_datasets['validation'][-1]['x_text'])
+    . john talked to bill about himself
+    >>> hf_tokenizer.decode(lm_datasets['validation'][-1]['y_text'])
+    john talked to bill about himself.
+
+If you want to implement your own logic to combine examples, try to extend :class:`CombineTransform`.
 
 ----------------------------
 ``hugdatafast`` in practice
