@@ -54,7 +54,7 @@ class MySortedDL(TfmdDL):
 
         # Save attributes
         super().__init__(dataset, **kwargs)
-        store_attr(self, 'pad_idxs,srtkey_fc,filter_fc,cache_file,idmap')
+        store_attr('pad_idxs,srtkey_fc,filter_fc,cache_file,idmap', self)
 
         # Prepare records for sorting / filtered samples
         if srtkey_fc or filter_fc:
@@ -281,7 +281,8 @@ class HF_Dataset():
 
     # store attributes
     self.pad_idx = hf_toker.pad_token_id
-    store_attr(self, "hf_dset,cols,n_inp,hf_toker,neat_show")
+    self.hf_dset = hf_dset
+    store_attr("cols,n_inp,hf_toker,neat_show", self)
 
   def __getitem__(self, idx):
     sample = self.hf_dset[idx]

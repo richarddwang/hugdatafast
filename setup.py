@@ -5,8 +5,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 REQUIRED_PKGS = [
-    'fastai',
-    'nlp',
+    'fastai>=2.0.8',
+    'fastscore>=1.0.1', # change of store_attr api
+    'nlp>=0.4.0',
 ]
 
 setuptools.setup(
