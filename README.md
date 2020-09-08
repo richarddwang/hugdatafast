@@ -15,5 +15,3 @@ The elegant integration of huggingface/nlp and fastai, and some handy data trans
 
 # Quick Intro
 ![hugdatafast_fastai](https://user-images.githubusercontent.com/17963619/92091020-be672f00-ee02-11ea-84c0-d54b4855ff4b.png)
-
-![transform](https://user-images.githubusercontent.com/17963619/92429054-685c0800-f1c3-11ea-8461-f05e0bf5b808.png)
