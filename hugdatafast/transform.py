@@ -157,7 +157,11 @@ class CombineTransform():
 
 @delegates(CombineTransform, but=["inp_cols", "out_cols", "init_attrs"])
 class LMTransform(CombineTransform):
-  """ Transform any dataset has tokenized text into dataset (autotgressive) language model. """
+  """ 
+  Transform any dataset has tokenized text into dataset (autotgressive) language model.
+  !! Caution: This span context window across examples. So make sure your texts in examples of the datasets are consecutive or relative.
+  Or you are knowing what you are doing.
+  """
   def __init__(self, tokenized_hf_dset, max_len, text_col, x_text_col='x_text', y_text_col='y_text', **kwargs):
     """
     Args:
