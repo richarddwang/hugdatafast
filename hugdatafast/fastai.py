@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
-import nlp
+import datasets
 from fastai.text.all import *
 
 
@@ -207,7 +207,7 @@ class _MultiCategory(_ShowTitle, _L):
 These two function is inperfect.
 But they cope with mutiple input columns problem (n_inp >1), which cause no df printing but just sequentail print
 These will be a problem when you are doing non-text problem with n_inp > 1 (multiple input column),
-which shouldn't be the case of huggingface/nlp user.
+which shouldn't be the case of huggingface/datasets user.
 And I hope fastai come up with a good solution to show_batch multiple inputs problems for text/non-text.
 """
 @typedispatch
@@ -225,14 +225,14 @@ def show_results(x: tuple, y, samples, outs, ctxs=None, max_n=10, trunc_at=150, 
   return ctxs
 
 class HF_Dataset():
-  """A wrapper for :class:`nlp.Dataset`.  It will behavior like original :class:`nlp.Dataset`, 
+  """A wrapper for :class:`datasets.Dataset`.  It will behavior like original :class:`datasets.Dataset`, 
   but also function as a :class:`fastai.data.core.datasets` that provides samples and decodes."""
   
   def __init__(self, hf_dset, cols=None, hf_toker=None, neat_show=False, n_inp=1):
     """
     Args:
-      hf_dset (:class:`nlp.Dataset`): Prerocessed Hugging Face dataset to be wrapped.
-      cols (dict, optional): columns of :class:`nlp.Dataset` to be used to construct samples, and (optionally) semantic tensor type for each of those columns to decode.\n
+      hf_dset (:class:`datasets.Dataset`): Prerocessed Hugging Face dataset to be wrapped.
+      cols (dict, optional): columns of :class:`datasets.Dataset` to be used to construct samples, and (optionally) semantic tensor type for each of those columns to decode.\n
         - cols(``Dict[Fastai Semantic Tensor]``): encode/decode column(key) with semantic tensor type(value). If {value} is ``noop``, semantic tensor of the column is by default `TensorTuple`.
         - cols(``list[str]``): specify only columns and take default setting for semantic tensor type of them.\n
           - if length is 1, regard the 1st element as `TensorText`
@@ -326,14 +326,14 @@ class HF_Dataset():
   def _decode(self, t:TensorMultiCategory, title): return self._decode_title(t.tolist(), _MultiCategory, title)
 
   def __getattr__(self, name):
-    "If not defined, let the nlp.Dataset in it act for us."
+    "If not defined, let the datasets.Dataset in it act for us."
     if name in HF_Dataset.__dict__: return HF_Dataset.__dict__[name]
     elif name in self.__dict__: return self.__dict__[name]
     elif hasattr(self.hf_dset, name): return getattr(self.hf_dset, name)
-    raise AttributeError(f"Both 'HF_Dataset' object and 'nlp.Dataset' object have no '{name}' attribute ")
+    raise AttributeError(f"Both 'HF_Dataset' object and 'datasets.Dataset' object have no '{name}' attribute ")
   
 class HF_Datasets(FilteredBase):
-  """Function as :class:`fastai.data.core.Datasets` to create :class:`fastai.data.core.Dataloaders` from a group of :class:`nlp.Dataset`s"""
+  """Function as :class:`fastai.data.core.Datasets` to create :class:`fastai.data.core.Dataloaders` from a group of :class:`datasets.Dataset`s"""
 
   _dl_type,_dbunch_type = MySortedDL,DataLoaders
   
@@ -341,7 +341,7 @@ class HF_Datasets(FilteredBase):
   def __init__(self, hf_dsets: dict, test_with_y=False, **kwargs):
     """
     Args:
-      hf_dsets (`Dict[nlp.Dataset]`): Prerocessed Hugging Face Datasets, {key} is split name, {value} is :class:`nlp.Dataset`, order will become the order in :class:`fastai.data.core.Dataloaders`.
+      hf_dsets (`Dict[datasets.Dataset]`): Prerocessed Hugging Face Datasets, {key} is split name, {value} is :class:`datasets.Dataset`, order will become the order in :class:`fastai.data.core.Dataloaders`.
       test_with_y (bool, optional): Whether the test set come with y (answers) but not with fake y (e.g. all -1 label). 
         If ``False``, tell only test set to construct samples from first ``n_inp`` columns (do not output fake y). 
         And all datasets passed in ``hf_dsets`` with its name starts with "test" will be regarded as test set. 
@@ -369,14 +369,14 @@ class HF_Datasets(FilteredBase):
     """
     Args:
       device (str): device where outputed batch will be on. Because a batch will be loaded to test when creating :class: `fastai.data.core.Dataloaders`, to prevent always leaving a batch of tensor in cuda:0, using default value cpu and then ``dls.to(other device)`` at the time you want is suggested.
-      cache_dir (str, optional): directory to store caches of :class:`MySortedDL`. if ``None``, use cache directory of the first :class:`nlp.Dataset` in ``hf_dsets`` that passed to :method:`HF_Datasets.__init__`.
+      cache_dir (str, optional): directory to store caches of :class:`MySortedDL`. if ``None``, use cache directory of the first :class:`datasets.Dataset` in ``hf_dsets`` that passed to :method:`HF_Datasets.__init__`.
       cache_name (str, optional): format string that includes one param "{split}", which will be replaced with name of split as cache file name under `cache_dir` for each split. If ``None``, tell :class:MySortedDL don't do caching.
       dl_kwargs (list[dict], optional): ith item is addtional kwargs to be passed to initialization of ith dataloader for ith split
       kwargs: Passed to :func:`fastai.data.core.FilteredBase.dataloaders`
     
     Example:
       >>> tokenized_cola
-      {'train': nlp.Dataset, 'validation': nlp.Dataset, 'test': nlp.Dataset}
+      {'train': datasets.Dataset, 'validation': datasets.Dataset, 'test': datasets.Dataset}
       >>> tokenized_cola['test'][0]
       {'sentence': 'Bill whistled past the house.',
        'label': -1, # Fake label. True labels are not open to the public.
@@ -424,61 +424,3 @@ class HF_Datasets(FilteredBase):
       kwargs['shuffle_train'] = False
       kwargs['drop_last'] = False
     return super().dataloaders(dl_kwargs=dl_kwargs, device=device, **kwargs)
-
-def hf_merge_datasets(*datasets_s):
-  """
-  Args:
-    *datasets_s: multiple dicts that contains :class:`nlp.Dataset`, each dict must have the same keys (split names), all datasets should have some columns with the same name.
-
-  Returns
-    :class:`nlp.DatasetDict`
-
-  Example:
-    >>> rte, wnli = nlp.load_dataset('glue', 'rte'), nlp.load_dataset('glue', 'wnli') # Just for example, you may not concates rte and wnli datasets in real.
-    # rte: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...}, wnli: {'train':Dataset(schema:{...,'sentence1':...,'sentence2':...}),'validation':...
-    >>> merge_dsets = hf_merge_datasets(rte, wnli)
-    {'train': HF_MergedDataset, 'validation': HF_MergedDataset, 'test': HF_MergedDataset}
-  """
-  keys_s = [ list(dsets.keys()) for dsets in datasets_s ]
-  for keys in keys_s: assert keys == keys_s[0]
-  merged_dsets = {}
-  for split in keys:
-    merged_dsets[split] = HF_MergedDataset(*[ dsets[split] for dsets in datasets_s])
-  return nlp.DatasetDict(merged_dsets)
-
-class HF_MergedDataset():
-  """Merge multiple :class:`nlp.Dataset` s to be a fake :class:`nlp.Dataset` be able to passed to :class:`HF_Dataset`
-  
-  Args:
-    *datasets : multiple :class:`nlp.Dataset` s, that all of these have some columns with the same names.
-
-  Returns:
-    HF_MergedDataset: a :class:`nlp.Dataset` like object that concats passed datasets, with basic functions to be turned into :class:`HF_Dataset`.
-
-  Example:
-    >>> tokenized_wiki_train, tokenized_bookcorpus_train
-    Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...), Dataset(schema: {...., 'input_ids': 'list<item: int64>', ...)
-    >>> merged_dset = HF_MergedDataset(tokenized_wiki_train, tokenized_bookcorpus_train)
-    >>> dls = HF_Datasets({'train': merged_dset}, cols=['input_ids'], hf_toker=hf_tokenizer).dataloaders(bs=128)
-  """
-  def __init__(self, *datasets):
-    self.dsets = datasets
-    self.len = reduce(lambda a,d: a+len(d), self.dsets, 0)
-  def __len__(self):
-    return self.len
-  def __getitem__(self, i):
-    for dset in self.dsets:
-      if i < len(dset): return dset[i]
-      else: i -= len(dset)
-    raise IndexError
-  def set_format(self, type, columns):
-    for dset in self.dsets: dset.set_format(type, columns)
-  @property
-  def format(self):
-    form = self.dsets[0].format
-    for dset in self.dsets:
-      assert form == dset.format
-    return form
-  @property
-  def cache_files(self):
-    return concat(*[ds.cache_files for ds in self.dsets])

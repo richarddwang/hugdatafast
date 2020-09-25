@@ -1,16 +1,16 @@
 from pathlib import Path
 import pyarrow as pa
-import nlp
+import datasets
 from fastai.text.all import *
 
 @patch
-def cache_directory(self: nlp.arrow_dataset.Dataset):
+def cache_directory(self: datasets.arrow_dataset.Dataset):
   return os.path.abspath(os.path.dirname(self.cache_files[0]['filename']))
 
 @patch
-def my_map(self: nlp.arrow_dataset.Dataset, *args, **kwargs):
+def my_map(self: datasets.arrow_dataset.Dataset, *args, **kwargs):
   """
-  The same as :class:`nlp.arrow_dataset.Dataset` , but it can add cache directory and .arrow to cache_file_name autmomatically for us.
+  The same as :class:`datasets.arrow_dataset.Dataset` , but it can add cache directory and .arrow to cache_file_name autmomatically for us.
   
   Example:
     >>> dataset.map(a_func, cache_file_name='processed')
@@ -23,9 +23,9 @@ def my_map(self: nlp.arrow_dataset.Dataset, *args, **kwargs):
   return self.map(*args, cache_file_name=cache_file_name, **kwargs)
 
 @patch
-def my_map(self: nlp.dataset_dict.DatasetDict, *args, **kwargs):
+def my_map(self: datasets.dataset_dict.DatasetDict, *args, **kwargs):
   """
-  The same as :class:`nlp.dataset_dict.DatasetDict` , but it can infer cache names for us.
+  The same as :class:`datasets.dataset_dict.DatasetDict` , but it can infer cache names for us.
 
   Example:
     >>> datasets.map(a_func, cache_file_names='processed_{split}')
@@ -35,19 +35,19 @@ def my_map(self: nlp.dataset_dict.DatasetDict, *args, **kwargs):
   self._check_values_type()
   if cache_file_names is None: cache_file_names = {k: None for k in self}
   if isinstance(cache_file_names, str): cache_file_names = {k: cache_file_names.format(split=k) for k in self}
-  return nlp.dataset_dict.DatasetDict({k: dataset.my_map(*args, cache_file_name=cache_file_names[k], **kwargs) for k, dataset in self.items()})
+  return datasets.dataset_dict.DatasetDict({k: dataset.my_map(*args, cache_file_name=cache_file_names[k], **kwargs) for k, dataset in self.items()})
 
-def simple_tokenize_func(cols, hf_tokenizer):
-  if isinstance(cols, list): cols = {c:c for c in cols}
-  elif isinstance(cols, str): cols = {cols:cols}
-  assert isinstance(cols, dict)
-
-  def _tokenize(example):
-    for in_col, out_col in cols.items():
-      example[out_col] = hf_tokenizer.convert_tokens_to_ids(hf_tokenizer.tokenize(example[in_col]))
+class SimpleTokenize():
+  def __init__(self, cols, hf_toker):
+    if isinstance(cols, list): cols = {c:c for c in cols}
+    elif isinstance(cols, str): cols = {cols:cols}
+    assert isinstance(cols, dict)
+    self.cols = cols
+    self.hf_toker = hf_toker
+  def __call__(self, example):
+    for in_col, out_col in self.cols.items():
+      example[out_col] = self.hf_toker.convert_tokens_to_ids(self.hf_toker.tokenize(example[in_col]))
     return example
-
-  return _tokenize
 
 class CombineTransform():
   """
@@ -62,7 +62,7 @@ class CombineTransform():
       drop_last` (`Optional[bool]`, default: `False`): whether to drop the last accumulated sample.
     """
     # Always do the case of multiple datasets for the convenience of coding
-    if isinstance(hf_dset, nlp.arrow_dataset.Dataset): self.dsets = {'Single': hf_dset}; self.single=True
+    if isinstance(hf_dset, datasets.arrow_dataset.Dataset): self.dsets = {'Single': hf_dset}; self.single=True
     else: self.dsets = hf_dset; self.single=False
     
     # check column names
@@ -73,16 +73,17 @@ class CombineTransform():
     for dset in self.dsets.values(): dset.set_format(type=None, columns=in_cols)
     
     # dealing with last sample
-    self.last_idx = None
+    self.last_idx = len(hf_dset) - 1
     self.drop_last = drop_last 
 
   def __call__(self, b, indices):
-    # If first batch, `nlp.Dataset.map` first test with several samples which affects our internal states, so we need to reinitialize.
+    # If first batch, `datasets.Dataset.map` first test with several samples which affects our internal states, so we need to reinitialize.
     if 0 in indices:
       self.reset_states()
 
     self.new_b = { c:[] for c in self.out_cols }
-    for z in zip(*b.values()):
+    values = [ b[c] for c in self.in_cols ]
+    for z in zip(*values):
       self.accumulate(*z)
     
     # If Last batch, whehther commit last incomplete example
@@ -124,9 +125,9 @@ class CombineTransform():
   def map(self, batch_size=1000, cache_file_name=None, **kwargs):
     """
     Args:
-      batch_size(int): See :class:`nlp.Dataset.map`, shouldn't be None here
+      batch_size(int): See :class:`datasets.Dataset.map`, shouldn't be None here
       cache_file_name: The same with the one of :func:`my_map`
-      kwargs: passed to :class:`nlp.Dataset.map`
+      kwargs: passed to :class:`datasets.Dataset.map`
     """
 
     # check
@@ -145,15 +146,18 @@ class CombineTransform():
     mapped_dsets = {}
     for k, dset in self.dsets.items():
       self.last_idx = len(dset) - 1
-      mapped_dsets[k] = dset.map(function=self, 
-                                 batched=True, batch_size=batch_size, 
-                                 with_indices=True, 
-                                 cache_file_name=cache_names[k],
-                                 remove_columns=self.in_cols, # Cuz output column has less rows (combined) than orginal column
-                                 **kwargs)
+      mapped_dset = dset.map(function=self, 
+                             batched=True, batch_size=batch_size, 
+                             with_indices=True,
+                             num_proc=1,
+                             cache_file_name=cache_names[k],
+                             remove_columns=self.in_cols, # Cuz output column has less rows (combined) than orginal column
+                             **kwargs)
+      mapped_dset.set_format(None, columns=self.out_cols)
+      mapped_dsets[k] = mapped_dset
 
     if self.single: return mapped_dsets['Single']
-    else: return nlp.DatasetDict(mapped_dsets)
+    else: return datasets.DatasetDict(mapped_dsets)
 
 @delegates(CombineTransform, but=["inp_cols", "out_cols", "init_attrs"])
 class LMTransform(CombineTransform):

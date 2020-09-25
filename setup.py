@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 REQUIRED_PKGS = [
     'fastai>=2.0.8',
     'fastscore>=1.0.1', # change of store_attr api
-    'nlp>=0.4.0',
+    'datasets',
 ]
 
 setuptools.setup(
@@ -32,5 +32,5 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=REQUIRED_PKGS,
-    keywords='nlp machine learning datasets metrics fastai huggingface',
+    keywords='datasets machine learning datasets metrics fastai huggingface',
 )

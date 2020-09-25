@@ -8,7 +8,7 @@ Base use case
 
 ::
 
-    >>> from nlp import load_dataset
+    >>> from datasets import load_dataset
     >>> from hugdatafast import *
 
 .. note::
@@ -19,7 +19,7 @@ Can you turn your data pipeline into only 3 lines ?
 ::
 
     >>> datasets = load_dataset('glue', 'cola') 
-    -> {'train': nlp.Dataset, 'validation': nlp.Dataset, 'test': nlp.Dataset}
+    -> {'train': datasets.Dataset, 'validation': datasets.Dataset, 'test': datasets.Dataset}
     >>> tokenized_datasets = datasets.map(simple_tokenize_func({'sentence':'text_idxs'}, hf_tokenizer))
     >>> dls = HF_Datasets(tokenized_datasets, cols=['text_idxs', 'label'], hf_toker=hf_tokenizer).dataloaders(bs=64) 
 
@@ -67,9 +67,9 @@ Other use cases
 
 1. Use your own dataset ?
 
-* `nlp.Dataset s from local structured files (csv, json, ...) <https://huggingface.co/nlp/loading_datasets.html#from-local-files>`_
+* `datasets.Dataset s from local structured files (csv, json, ...) <https://huggingface.co/datasets/loading_datasets.html#from-local-files>`_
 
-* `nlp.Dataset s from custom loading script <https://huggingface.co/nlp/add_dataset.html>`_
+* `datasets.Dataset s from custom loading script <https://huggingface.co/datasets/add_dataset.html>`_
 
 2. Need to combine examples to generate new example ? (e.g. Traditional language model) 
 

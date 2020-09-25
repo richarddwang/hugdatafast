@@ -1,7 +1,7 @@
 hugdatafast
 =============
 
-This package is to provide a  elegant bridge between fastai and huggingface/nlp and some handy data transforms 
+This package is to provide a  elegant bridge between fastai and huggingface/datasets and some handy data transforms 
 for NLPers.
 
 Author: Richard Wang
@@ -15,7 +15,7 @@ Installation
 
     pip install hugdatafast
 
-This will install also the lastest ``fastai`` and ``nlp``.
+This will install also the lastest ``fastai`` and ``datasets``.
 
 .. toctree::
     :maxdepth: 2
