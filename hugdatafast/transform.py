@@ -31,11 +31,26 @@ def my_map(self: datasets.dataset_dict.DatasetDict, *args, **kwargs):
     >>> datasets.map(a_func, cache_file_names='processed_{split}')
     # cache file paths : "<dataset cache directory>/processed_train.arrow", "<dataset cache directory>/processed_validation.arrow", "<dataset cache directory>/processed_test.arrow"
   """
+  # cache file names
   cache_file_names = kwargs.pop('cache_file_names', None)
   self._check_values_type()
   if cache_file_names is None: cache_file_names = {k: None for k in self}
   if isinstance(cache_file_names, str): cache_file_names = {k: cache_file_names.format(split=k) for k in self}
-  return datasets.dataset_dict.DatasetDict({k: dataset.my_map(*args, cache_file_name=cache_file_names[k], **kwargs) for k, dataset in self.items()})
+  # split specific kwargs
+  fn_kwargs = kwargs.pop('fn_kwargs', None)
+  if fn_kwargs is None: fn_kwargs = {}
+  _fn_kwargs = {split_name:{} for split_name in self.keys()}
+  for k,v in fn_kwargs.items():
+    if k in _fn_kwargs and isinstance(v, dict): # kwargs for a specific split
+      _fn_kwargs[k] = v
+    else: # generic kwargs for all splits
+      for split in _fn_kwargs: _fn_kwargs[split][k] = v
+
+  # pass
+  return datasets.dataset_dict.DatasetDict({k: dataset.my_map(*args, 
+                                                              cache_file_name=cache_file_names[k], 
+                                                              fn_kwargs=_fn_kwargs[k], 
+                                                              **kwargs) for k, dataset in self.items()})
 
 class SimpleTokenize():
   def __init__(self, cols, hf_toker):
